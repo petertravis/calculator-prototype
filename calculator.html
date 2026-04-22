@@ -570,8 +570,87 @@
   .c-btn-post:hover  { opacity: 0.9; }
   .c-btn-post:active { transform: scale(0.96); }
 
+  /* ── Replies ──────────────────────────────────────────── */
+  .c-replies-list {
+    max-height: 180px;
+    overflow-y: auto;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .c-replies-list:empty { display: none; }
+
+  .c-reply {
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .c-reply:last-child { border-bottom: none; }
+
+  .c-reply-meta {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 4px;
+  }
+
+  .c-reply-avatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .c-reply-author { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.82); flex: 1; }
+  .c-reply-time   { font-size: 10px; color: rgba(255,255,255,0.24); }
+  .c-reply-text   { font-size: 12.5px; line-height: 1.45; color: rgba(255,255,255,0.7); padding-left: 25px; word-break: break-word; }
+
+  .c-reply-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    background: rgba(0,0,0,0.18);
+  }
+
+  .c-reply-input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 20px;
+    color: rgba(255,255,255,0.9);
+    font-family: inherit;
+    font-size: 12.5px;
+    padding: 5px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .c-reply-input:focus { border-color: rgba(251,191,36,0.4); }
+  .c-reply-input::placeholder { color: rgba(255,255,255,0.2); }
+
+  .c-reply-send {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: #fff;
+    transition: opacity 0.15s;
+  }
+  .c-reply-send:hover { opacity: 0.85; }
+
   /* ── Comment view (existing) ──────────────────────────── */
-  .c-comment { padding: 14px 14px 12px; }
+  .c-comment { padding: 14px 14px 10px; }
 
   .c-meta {
     display: flex;
@@ -986,7 +1065,14 @@
     if (!on) closePopover();
   }
 
+  let activeReplyRef = null;
+  let activeReplyCallback = null;
+
   function closePopover() {
+    if (activeReplyRef && activeReplyCallback) {
+      activeReplyRef.off('value', activeReplyCallback);
+      activeReplyRef = null; activeReplyCallback = null;
+    }
     if (openPopover) { openPopover.remove(); openPopover = null; }
     if (openPinEl)   { openPinEl.classList.remove('active'); openPinEl = null; }
   }
@@ -1104,6 +1190,11 @@
           <div class="c-footer">
             <button class="c-btn-delete">Delete</button>
           </div>
+        </div>
+        <div class="c-replies-list"></div>
+        <div class="c-reply-form">
+          <input class="c-reply-input" type="text" placeholder="Reply…">
+          <button class="c-reply-send">↵</button>
         </div>`;
       commentLayer.appendChild(pop);
       openPopover = pop;
@@ -1111,11 +1202,48 @@
         placePopover(pop, parseFloat(pin.style.left), parseFloat(pin.style.top) + 28);
       });
 
+      // Real-time replies
+      const repliesList = pop.querySelector('.c-replies-list');
+      const replyRef = commentsRef.child(comment.fbKey).child('replies');
+      activeReplyRef = replyRef;
+      activeReplyCallback = snap => {
+        repliesList.innerHTML = '';
+        Object.entries(snap.val() || {}).forEach(([, r]) => {
+          const rc = authorColor(r.author);
+          const div = document.createElement('div');
+          div.className = 'c-reply';
+          div.innerHTML = `
+            <div class="c-reply-meta">
+              <div class="c-reply-avatar" style="background:${rc}">${initials(r.author)}</div>
+              <span class="c-reply-author">${esc(r.author)}</span>
+              <span class="c-reply-time">${timeAgo(r.time)}</span>
+            </div>
+            <div class="c-reply-text">${esc(r.text)}</div>`;
+          repliesList.appendChild(div);
+        });
+        // Scroll to bottom when new reply arrives
+        repliesList.scrollTop = repliesList.scrollHeight;
+        requestAnimationFrame(() => placePopover(pop, parseFloat(pin.style.left), parseFloat(pin.style.top) + 28));
+      };
+      replyRef.on('value', activeReplyCallback);
+
+      // Reply submit
+      const replyInput = pop.querySelector('.c-reply-input');
+      const submitReply = () => {
+        const text = replyInput.value.trim();
+        if (!text) return;
+        replyRef.push({ text, author: savedName || 'Anonymous', time: Date.now() });
+        replyInput.value = '';
+      };
+      pop.querySelector('.c-reply-send').onclick = submitReply;
+      replyInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); submitReply(); }
+      });
+
       pop.querySelector('.c-btn-delete').onclick = () => {
         commentsRef.child(comment.fbKey).remove();
         pop.remove();
         openPopover = null; openPinEl = null;
-        // onValue will remove the pin automatically
       };
     });
   }
