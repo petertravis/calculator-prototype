@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculator</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0a0a0f;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(120, 40, 200, 0.15) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(40, 100, 255, 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 80%, rgba(0, 200, 180, 0.08) 0%, transparent 50%);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    color: #fff;
+  }
+
+  /* ── Toolbar ──────────────────────────────────────────── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+
+  .view-switcher {
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 4px;
+  }
+
+  .view-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.4);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    padding: 6px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+  }
+
+  .view-btn.active {
+    background: rgba(255,255,255,0.13);
+    color: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+  }
+  .view-btn:hover:not(.active) { color: rgba(255,255,255,0.7); }
+
+  /* Comment toggle button in toolbar */
+  .comment-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 7px 12px;
+    cursor: pointer;
+    color: rgba(255,255,255,0.45);
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    transition: all 0.2s ease;
+  }
+
+  .comment-toggle-btn:hover { color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.2); }
+
+  .comment-toggle-btn.active {
+    background: rgba(251,191,36,0.12);
+    border-color: rgba(251,191,36,0.35);
+    color: #fbbf24;
+  }
+
+  .comment-toggle-btn .icon { opacity: 0.7; }
+  .comment-toggle-btn.active .icon { opacity: 1; }
+
+  .comment-toggle-btn .c-count {
+    background: rgba(251,191,36,0.2);
+    border-radius: 100px;
+    padding: 1px 6px;
+    font-size: 10.5px;
+    color: rgba(251,191,36,0.9);
+    display: none;
+  }
+  .comment-toggle-btn .c-count.visible { display: inline; }
+
+  /* ── Calc shell ───────────────────────────────────────── */
+  .calc-shell { position: relative; }
+
+  .calc {
+    background: rgba(16, 16, 26, 0.88);
+    border: 1px solid rgba(255,255,255,0.11);
+    border-radius: 28px;
+    backdrop-filter: blur(48px);
+    -webkit-backdrop-filter: blur(48px);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.04) inset,
+      0 48px 96px rgba(0,0,0,0.65),
+      0 0 80px rgba(100,30,200,0.07);
+    overflow: hidden;
+    transition: width 0.38s cubic-bezier(0.4,0,0.2,1),
+                height 0.38s cubic-bezier(0.4,0,0.2,1),
+                border-radius 0.38s ease;
+  }
+
+  /* In comment mode, calc is visually dimmed and non-interactive */
+  body.comment-mode .calc {
+    pointer-events: none;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+  }
+
+  /* ── Display ──────────────────────────────────────────── */
+  .display {
+    padding: 22px 22px 14px;
+    background: rgba(0,0,0,0.22);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .display-expr {
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.28);
+    text-align: right;
+    min-height: 17px;
+    letter-spacing: 0.03em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .display-value {
+    font-size: 52px;
+    font-weight: 200;
+    text-align: right;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .display-value.long      { font-size: 36px; }
+  .display-value.very-long { font-size: 26px; }
+
+  /* ── Button base ──────────────────────────────────────── */
+  button.key {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 400;
+    transition: transform 0.08s ease;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+  }
+
+  button.key::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    transition: background 0.12s ease;
+  }
+
+  button.key:hover::after  { background: rgba(255,255,255,0.07); }
+  button.key:active::after { background: rgba(255,255,255,0.15); }
+  button.key:active        { transform: scale(0.95); }
+
+  /* ── Key types ────────────────────────────────────────── */
+  .key-num   { background: rgba(28, 28, 44, 0.92); color: rgba(255,255,255,0.93); }
+  .key-op    { background: rgba(44, 26, 76, 0.97); color: #c084fc; }
+  .key-fn    { background: rgba(18, 22, 38, 0.92); color: rgba(255,255,255,0.5); }
+  .key-clear { background: rgba(38, 18, 18, 0.92); color: #f87171; }
+  .key-eq    {
+    background: linear-gradient(145deg, #7c3aed 0%, #4f46e5 100%);
+    color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 2px 12px rgba(79,70,229,0.4);
+  }
+  .key-mem {
+    background: rgba(12, 18, 34, 0.92);
+    color: rgba(148, 190, 255, 0.62);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+  }
+  .key-sci {
+    background: rgba(10, 16, 32, 0.95);
+    color: rgba(96, 170, 255, 0.78);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  .key-zero { justify-content: flex-start; padding-left: 26px; }
+  .span-h2  { grid-column: span 2; }
+
+  /* ── Grid base ────────────────────────────────────────── */
+  .btn-grid {
+    display: grid;
+    gap: 1px;
+    background: rgba(255,255,255,0.045);
+  }
+  .cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  /* ══════════════════════════════════════════════════════
+     COMPACT VIEW
+  ══════════════════════════════════════════════════════ */
+  .view-compact .calc          { width: 252px; }
+  .view-compact .display       { padding: 16px 18px 12px; }
+  .view-compact .display-value { font-size: 42px; }
+  .view-compact .display-value.long { font-size: 28px; }
+  .view-compact .portrait-wrap  { display: block; }
+  .view-compact .landscape-wrap { display: none; }
+  .view-compact .mem-bar        { display: none; }
+  .view-compact button.key      { height: 56px; font-size: 16px; }
+  .view-compact .key-fn         { font-size: 12.5px; }
+  .view-compact .key-eq         { font-size: 20px; }
+
+  /* ══════════════════════════════════════════════════════
+     MEDIUM VIEW
+  ══════════════════════════════════════════════════════ */
+  .view-medium .calc            { width: 336px; }
+  .view-medium .display         { padding: 20px 22px 14px; }
+  .view-medium .portrait-wrap   { display: block; }
+  .view-medium .landscape-wrap  { display: none; }
+
+  .mem-bar {
+    display: none;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: rgba(255,255,255,0.045);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .view-medium .mem-bar              { display: grid; }
+  .view-medium .mem-bar button.key   { height: 42px; font-size: 11.5px; }
+  .view-medium button.key            { height: 66px; font-size: 18px; }
+  .view-medium .key-fn               { font-size: 13.5px; }
+  .view-medium .key-eq               { font-size: 22px; }
+
+  /* ══════════════════════════════════════════════════════
+     FULL / LANDSCAPE VIEW
+  ══════════════════════════════════════════════════════ */
+  .view-large .calc             { width: 612px; }
+  .view-large .portrait-wrap    { display: none; }
+
+  .view-large .landscape-wrap {
+    display: flex;
+    flex-direction: row;
+    height: 392px;
+  }
+
+  .land-left {
+    display: flex;
+    flex-direction: column;
+    width: 232px;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(255,255,255,0.06);
+    background: rgba(0,0,0,0.12);
+  }
+
+  .land-display {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 20px 20px 14px;
+    background: rgba(0,0,0,0.18);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .land-display .display-expr  { font-size: 11.5px; }
+  .land-display .display-value { font-size: 42px; font-weight: 200; letter-spacing: -0.03em; }
+  .land-display .display-value.long { font-size: 28px; }
+  .land-display .display-value.very-long { font-size: 20px; }
+
+  .sci-keys {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: rgba(255,255,255,0.045);
+    flex-shrink: 0;
+  }
+
+  .view-large .sci-keys button.key { height: 48px; font-size: 12.5px; }
+  .view-large .key-mem             { font-size: 11px; }
+
+  .land-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .land-right .main-keys {
+    flex: 1;
+    grid-template-rows: repeat(5, 1fr);
+  }
+
+  .view-large .land-right button.key { font-size: 18px; }
+  .view-large .land-right .key-fn    { font-size: 13.5px; }
+  .view-large .land-right .key-eq    { font-size: 24px; }
+  .view-large .land-right .key-zero  { padding-left: 28px; }
+
+  /* ── View label ───────────────────────────────────────── */
+  .view-label {
+    margin-top: 18px;
+    font-size: 10.5px;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  /* ══════════════════════════════════════════════════════
+     COMMENT SYSTEM
+  ══════════════════════════════════════════════════════ */
+
+  /* Full-screen layer: always present, pointer-events off by default */
+  #commentLayer {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  body.comment-mode {
+    cursor: crosshair;
+  }
+
+  /* Layer is clickable in comment mode */
+  body.comment-mode #commentLayer {
+    pointer-events: all;
+  }
+
+  /* Mode bar ── slides up from bottom */
+  #commentBar {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 300;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background: rgba(12, 10, 20, 0.96);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 100px;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    font-size: 12.5px;
+    color: rgba(251, 191, 36, 0.85);
+    white-space: nowrap;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(251,191,36,0.08);
+    user-select: none;
+  }
+
+  #commentBar.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: none;
+  }
+
+  .c-bar-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #fbbf24;
+    flex-shrink: 0;
+    animation: dot-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes dot-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+  }
+
+  #commentBar kbd {
+    background: rgba(255,255,255,0.09);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 5px;
+    padding: 1px 7px;
+    font-family: inherit;
+    font-size: 11px;
+    color: rgba(255,255,255,0.55);
+  }
+
+  /* ── Pins ─────────────────────────────────────────────── */
+  .c-pin {
+    position: fixed;
+    z-index: 110;
+    pointer-events: all;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: 50% 50% 50% 0;
+    /* rotated so the "tail" points down-left at the click point */
+    transform: translate(-4px, -28px) rotate(0deg);
+    background: linear-gradient(145deg, #fbbf24, #f59e0b);
+    box-shadow: 0 3px 10px rgba(245,158,11,0.55), 0 0 0 2px rgba(255,255,255,0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+    transition: box-shadow 0.15s ease, filter 0.15s ease;
+    user-select: none;
+  }
+
+  .c-pin:hover {
+    box-shadow: 0 4px 18px rgba(245,158,11,0.7), 0 0 0 2px rgba(255,255,255,0.3);
+    filter: brightness(1.1);
+  }
+
+  .c-pin.active {
+    box-shadow: 0 4px 22px rgba(245,158,11,0.75), 0 0 0 3px rgba(255,255,255,0.35);
+    filter: brightness(1.15);
+  }
+
+  @keyframes pin-drop {
+    0%   { opacity: 0; filter: brightness(1.4); transform: translate(-4px, -42px) scale(0.65); }
+    65%  { transform: translate(-4px, -24px) scale(1.08); }
+    100% { opacity: 1; filter: brightness(1); transform: translate(-4px, -28px) scale(1); }
+  }
+
+  .c-pin--new { animation: pin-drop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+  /* Pending pin (while composing) */
+  .c-pin--pending {
+    background: linear-gradient(145deg, #94a3b8, #64748b);
+    box-shadow: 0 3px 10px rgba(100,116,139,0.4), 0 0 0 2px rgba(255,255,255,0.15);
+    font-size: 16px;
+    font-weight: 300;
+  }
+
+  /* ── Popover ──────────────────────────────────────────── */
+  .c-popover {
+    position: fixed;
+    z-index: 120;
+    width: 276px;
+    background: rgba(13, 13, 22, 0.97);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-left: 3px solid #f59e0b;
+    border-radius: 14px;
+    backdrop-filter: blur(36px);
+    -webkit-backdrop-filter: blur(36px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    overflow: hidden;
+    pointer-events: all;
+    animation: pop-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes pop-in {
+    from { opacity: 0; transform: scale(0.92) translateY(4px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  /* ── Comment form (new) ───────────────────────────────── */
+  .c-form { padding: 14px; }
+
+  .c-form-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(251, 191, 36, 0.6);
+    margin-bottom: 9px;
+  }
+
+  .c-form textarea {
+    width: 100%;
+    min-height: 76px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.9);
+    font-family: inherit;
+    font-size: 13.5px;
+    line-height: 1.5;
+    padding: 8px 10px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .c-form textarea:focus { border-color: rgba(251,191,36,0.45); }
+  .c-form textarea::placeholder { color: rgba(255,255,255,0.22); }
+
+  .c-form input {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 7px;
+    color: rgba(255,255,255,0.7);
+    font-family: inherit;
+    font-size: 12.5px;
+    padding: 6px 10px;
+    outline: none;
+    margin-top: 7px;
+    transition: border-color 0.15s;
+  }
+
+  .c-form input:focus { border-color: rgba(251,191,36,0.3); }
+  .c-form input::placeholder { color: rgba(255,255,255,0.18); }
+
+  .c-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .c-hint {
+    flex: 1;
+    font-size: 10.5px;
+    color: rgba(255,255,255,0.2);
+  }
+
+  .c-btn-cancel {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 5px;
+    transition: color 0.15s;
+  }
+  .c-btn-cancel:hover { color: rgba(255,255,255,0.65); }
+
+  .c-btn-post {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    box-shadow: 0 2px 8px rgba(245,158,11,0.35);
+  }
+  .c-btn-post:hover  { opacity: 0.9; }
+  .c-btn-post:active { transform: scale(0.96); }
+
+  /* ── Comment view (existing) ──────────────────────────── */
+  .c-comment { padding: 14px 14px 12px; }
+
+  .c-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 9px;
+  }
+
+  .c-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+    letter-spacing: -0.02em;
+  }
+
+  .c-author {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.88);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .c-time {
+    font-size: 11px;
+    color: rgba(255,255,255,0.26);
+    flex-shrink: 0;
+  }
+
+  .c-text {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: rgba(255,255,255,0.78);
+    word-break: break-word;
+  }
+
+  .c-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .c-btn-delete {
+    background: none;
+    border: none;
+    color: rgba(248, 113, 113, 0.45);
+    font-family: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+    padding: 2px 4px;
+    transition: color 0.15s;
+  }
+  .c-btn-delete:hover { color: rgba(248,113,113,0.9); }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="view-switcher">
+    <button class="view-btn active" data-view="compact">Compact</button>
+    <button class="view-btn" data-view="medium">Medium</button>
+    <button class="view-btn" data-view="large">Full</button>
+  </div>
+
+  <button class="comment-toggle-btn" id="commentToggleBtn" title="Comment mode (press C)">
+    <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path d="M13.5 9a5.5 5.5 0 0 1-5.5 5H3.5L2 15.5V8a5.5 5.5 0 0 1 5.5-5.5A5.5 5.5 0 0 1 13.5 8V9Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+    </svg>
+    <span>Comment</span>
+    <span class="c-count" id="commentCount">0</span>
+  </button>
+
+  <button class="comment-toggle-btn" id="exportBtn" title="Export your comments as a file">
+    <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Export</span>
+  </button>
+
+  <label class="comment-toggle-btn" id="importBtn" title="Import someone else's comments">
+    <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path d="M8 10V2M5 5l3-3 3 3M3 13h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Import</span>
+    <input type="file" id="importInput" accept=".json" style="display:none">
+  </label>
+</div>
+
+<div class="calc-shell view-compact" id="calcShell">
+  <div class="calc">
+
+    <!-- ══ PORTRAIT (compact + medium) ══ -->
+    <div class="portrait-wrap">
+      <div class="display">
+        <div class="display-expr" id="expr"></div>
+        <div class="display-value" id="displayVal">0</div>
+      </div>
+
+      <div class="mem-bar">
+        <button class="key key-mem" data-action="mc">MC</button>
+        <button class="key key-mem" data-action="mr">MR</button>
+        <button class="key key-mem" data-action="m+">M+</button>
+        <button class="key key-mem" data-action="ms">MS</button>
+      </div>
+
+      <div class="main-keys btn-grid cols-4">
+        <button class="key key-clear" data-action="ac">AC</button>
+        <button class="key key-fn"    data-action="sign">+/−</button>
+        <button class="key key-fn"    data-action="pct">%</button>
+        <button class="key key-op"    data-action="op" data-val="÷">÷</button>
+
+        <button class="key key-num" data-action="num" data-val="7">7</button>
+        <button class="key key-num" data-action="num" data-val="8">8</button>
+        <button class="key key-num" data-action="num" data-val="9">9</button>
+        <button class="key key-op"  data-action="op" data-val="×">×</button>
+
+        <button class="key key-num" data-action="num" data-val="4">4</button>
+        <button class="key key-num" data-action="num" data-val="5">5</button>
+        <button class="key key-num" data-action="num" data-val="6">6</button>
+        <button class="key key-op"  data-action="op" data-val="−">−</button>
+
+        <button class="key key-num" data-action="num" data-val="1">1</button>
+        <button class="key key-num" data-action="num" data-val="2">2</button>
+        <button class="key key-num" data-action="num" data-val="3">3</button>
+        <button class="key key-op"  data-action="op" data-val="+">+</button>
+
+        <button class="key key-num key-zero span-h2" data-action="num" data-val="0">0</button>
+        <button class="key key-num" data-action="dot">.</button>
+        <button class="key key-eq"  data-action="eq">=</button>
+      </div>
+    </div>
+
+    <!-- ══ LANDSCAPE (full view) ══ -->
+    <div class="landscape-wrap">
+      <div class="land-left">
+        <div class="land-display display">
+          <div class="display-expr" id="expr2"></div>
+          <div class="display-value" id="displayVal2">0</div>
+        </div>
+
+        <div class="sci-keys">
+          <button class="key key-mem" data-action="mc">MC</button>
+          <button class="key key-mem" data-action="mr">MR</button>
+          <button class="key key-mem" data-action="m+">M+</button>
+          <button class="key key-mem" data-action="ms">MS</button>
+
+          <button class="key key-sci" data-action="sin">sin</button>
+          <button class="key key-sci" data-action="cos">cos</button>
+          <button class="key key-sci" data-action="tan">tan</button>
+          <button class="key key-sci" data-action="log">log</button>
+
+          <button class="key key-sci" data-action="sqrt">√</button>
+          <button class="key key-sci" data-action="sq">x²</button>
+          <button class="key key-sci" data-action="inv">1/x</button>
+          <button class="key key-sci" data-action="pi">π</button>
+
+          <button class="key key-sci" data-action="ln">ln</button>
+          <button class="key key-sci" data-action="exp">eˣ</button>
+          <button class="key key-sci" data-action="abs">|x|</button>
+          <button class="key key-sci" data-action="fact">n!</button>
+        </div>
+      </div>
+
+      <div class="land-right">
+        <div class="main-keys btn-grid cols-4">
+          <button class="key key-clear" data-action="ac">AC</button>
+          <button class="key key-fn"    data-action="sign">+/−</button>
+          <button class="key key-fn"    data-action="pct">%</button>
+          <button class="key key-op"    data-action="op" data-val="÷">÷</button>
+
+          <button class="key key-num" data-action="num" data-val="7">7</button>
+          <button class="key key-num" data-action="num" data-val="8">8</button>
+          <button class="key key-num" data-action="num" data-val="9">9</button>
+          <button class="key key-op"  data-action="op" data-val="×">×</button>
+
+          <button class="key key-num" data-action="num" data-val="4">4</button>
+          <button class="key key-num" data-action="num" data-val="5">5</button>
+          <button class="key key-num" data-action="num" data-val="6">6</button>
+          <button class="key key-op"  data-action="op" data-val="−">−</button>
+
+          <button class="key key-num" data-action="num" data-val="1">1</button>
+          <button class="key key-num" data-action="num" data-val="2">2</button>
+          <button class="key key-num" data-action="num" data-val="3">3</button>
+          <button class="key key-op"  data-action="op" data-val="+">+</button>
+
+          <button class="key key-num key-zero span-h2" data-action="num" data-val="0">0</button>
+          <button class="key key-num" data-action="dot">.</button>
+          <button class="key key-eq"  data-action="eq">=</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="view-label" id="viewLabel">Compact</div>
+
+<!-- Comment layer and mode bar -->
+<div id="commentLayer"></div>
+<div id="commentBar">
+  <span class="c-bar-dot"></span>
+  Comment mode &nbsp;·&nbsp; Click anywhere to place &nbsp;·&nbsp; <kbd>Esc</kbd> to exit
+</div>
+
+<script>
+  // ═══════════════════════════════════════════
+  // CALCULATOR
+  // ═══════════════════════════════════════════
+
+  let current = '0', prev = null, op = null, justEvaled = false, memory = 0;
+
+  const displayVal  = document.getElementById('displayVal');
+  const displayVal2 = document.getElementById('displayVal2');
+  const exprEl      = document.getElementById('expr');
+  const exprEl2     = document.getElementById('expr2');
+
+  function setExpr(txt) {
+    exprEl.textContent = txt;
+    exprEl2.textContent = txt;
+  }
+
+  function updateDisplay(val) {
+    [displayVal, displayVal2].forEach(el => {
+      el.textContent = val;
+      el.classList.remove('long', 'very-long');
+      if (val.length > 9)      el.classList.add('very-long');
+      else if (val.length > 6) el.classList.add('long');
+    });
+  }
+
+  function formatNum(n) {
+    if (isNaN(n) || !isFinite(n)) return 'Error';
+    return parseFloat(n.toPrecision(12)).toString();
+  }
+
+  function compute(a, o, b) {
+    a = parseFloat(a); b = parseFloat(b);
+    switch (o) {
+      case '+': return a + b;
+      case '−': return a - b;
+      case '×': return a * b;
+      case '÷': return b === 0 ? NaN : a / b;
+    }
+  }
+
+  function pressNum(v)  {
+    if (justEvaled) { current = v; justEvaled = false; }
+    else current = current === '0' ? v : current + v;
+    updateDisplay(current);
+  }
+
+  function pressDot() {
+    if (justEvaled) { current = '0.'; justEvaled = false; }
+    else if (!current.includes('.')) current += '.';
+    updateDisplay(current);
+  }
+
+  function pressOp(o) {
+    if (op && !justEvaled) {
+      prev = formatNum(compute(prev, op, current));
+      updateDisplay(prev);
+    } else { prev = current; }
+    op = o;
+    setExpr(prev + ' ' + op);
+    justEvaled = true;
+  }
+
+  function pressEq() {
+    if (!op || prev === null) return;
+    const res = formatNum(compute(prev, op, current));
+    setExpr(prev + ' ' + op + ' ' + current + ' =');
+    current = res;
+    updateDisplay(current);
+    op = null; prev = null; justEvaled = true;
+  }
+
+  function pressAC() {
+    current = '0'; prev = null; op = null; justEvaled = false;
+    setExpr(''); updateDisplay('0');
+  }
+
+  function pressSign() { current = formatNum(-parseFloat(current)); updateDisplay(current); }
+  function pressPct()  { current = formatNum(parseFloat(current) / 100); updateDisplay(current); }
+
+  function factorial(n) {
+    n = Math.floor(Math.abs(n));
+    if (n > 170) return Infinity;
+    let r = 1; for (let i = 2; i <= n; i++) r *= i; return r;
+  }
+
+  function pressSci(action) {
+    const n = parseFloat(current);
+    const map = {
+      sin: () => Math.sin(n * Math.PI / 180), cos: () => Math.cos(n * Math.PI / 180),
+      tan: () => Math.tan(n * Math.PI / 180), log: () => Math.log10(n),
+      ln:  () => Math.log(n),   sqrt: () => Math.sqrt(n),
+      sq:  () => n * n,         inv:  () => 1 / n,
+      pi:  () => Math.PI,       exp:  () => Math.exp(n),
+      abs: () => Math.abs(n),   fact: () => factorial(n),
+    };
+    if (map[action]) { current = formatNum(map[action]()); justEvaled = true; updateDisplay(current); }
+  }
+
+  function pressMem(action) {
+    switch (action) {
+      case 'mc': memory = 0; break;
+      case 'mr': current = formatNum(memory); updateDisplay(current); break;
+      case 'm+': memory += parseFloat(current); break;
+      case 'ms': memory = parseFloat(current); break;
+    }
+  }
+
+  document.querySelector('.calc').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const { action, val } = btn.dataset;
+    switch (action) {
+      case 'num':  pressNum(val); break;
+      case 'dot':  pressDot();   break;
+      case 'op':   pressOp(val); break;
+      case 'eq':   pressEq();    break;
+      case 'ac':   pressAC();    break;
+      case 'sign': pressSign();  break;
+      case 'pct':  pressPct();   break;
+      case 'mc': case 'mr': case 'm+': case 'ms': pressMem(action); break;
+      default:     pressSci(action);
+    }
+  });
+
+  // ── View switcher ──────────────────────────────────────
+  const shell   = document.getElementById('calcShell');
+  const viewLbl = document.getElementById('viewLabel');
+  const labels  = { compact: 'Compact', medium: 'Medium', large: 'Full' };
+
+  document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const v = btn.dataset.view;
+      shell.className = `calc-shell view-${v}`;
+      viewLbl.textContent = labels[v];
+    });
+  });
+
+  updateDisplay('0');
+
+  // ═══════════════════════════════════════════
+  // COMMENT SYSTEM
+  // ═══════════════════════════════════════════
+
+  const commentLayer      = document.getElementById('commentLayer');
+  const commentBar        = document.getElementById('commentBar');
+  const commentToggleBtn  = document.getElementById('commentToggleBtn');
+  const commentCountEl    = document.getElementById('commentCount');
+
+  let commentMode  = false;
+  let openPopover  = null;   // currently-shown popover DOM node
+  let openPinEl    = null;   // currently-active pin DOM node
+  let savedName    = localStorage.getItem('cc-name') || '';
+  let comments     = JSON.parse(localStorage.getItem('cc-comments') || '[]');
+  let nextId       = comments.length ? Math.max(...comments.map(c => c.id)) + 1 : 1;
+
+  function saveComments() { localStorage.setItem('cc-comments', JSON.stringify(comments)); }
+
+  function timeAgo(ts) {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    return Math.floor(s / 86400) + 'd ago';
+  }
+
+  function initials(name) {
+    return name.split(' ').map(w => w[0] || '').join('').toUpperCase().slice(0, 2) || '?';
+  }
+
+  function updateBadge() {
+    const n = comments.length;
+    commentCountEl.textContent = n;
+    commentCountEl.classList.toggle('visible', n > 0);
+  }
+
+  function setCommentMode(on) {
+    commentMode = on;
+    document.body.classList.toggle('comment-mode', on);
+    commentBar.classList.toggle('visible', on);
+    commentToggleBtn.classList.toggle('active', on);
+    if (!on) closePopover();
+  }
+
+  function closePopover() {
+    if (openPopover) { openPopover.remove(); openPopover = null; }
+    if (openPinEl)   { openPinEl.classList.remove('active'); openPinEl = null; }
+  }
+
+  // Smart popover positioning: prefer right of pin, flip left if near edge
+  function placePopover(popover, pinX, pinY) {
+    const GAP = 14, W = window.innerWidth, H = window.innerHeight;
+    const pw = 276, ph = popover.offsetHeight || 170;
+    let left = pinX + GAP;
+    let top  = pinY - 20;
+    if (left + pw > W - 12) left = pinX - pw - GAP;
+    if (top + ph > H - 12)  top  = H - ph - 12;
+    if (top < 12)            top  = 12;
+    popover.style.left = left + 'px';
+    popover.style.top  = top  + 'px';
+  }
+
+  // ── Place a new comment ────────────────────────────────
+  function openNewCommentAt(x, y) {
+    closePopover();
+
+    const pendingPin = document.createElement('div');
+    pendingPin.className = 'c-pin c-pin--pending active';
+    pendingPin.style.cssText = `left:${x}px;top:${y}px;`;
+    pendingPin.textContent = '+';
+    commentLayer.appendChild(pendingPin);
+    openPinEl = pendingPin;
+
+    const pop = document.createElement('div');
+    pop.className = 'c-popover';
+    pop.innerHTML = `
+      <div class="c-form">
+        <div class="c-form-label">New comment</div>
+        <textarea placeholder="Type a comment…"></textarea>
+        <input type="text" placeholder="Your name (optional)" value="${savedName.replace(/"/g,'&quot;')}">
+        <div class="c-form-actions">
+          <span class="c-hint">⌘↵ to post</span>
+          <button class="c-btn-cancel">Cancel</button>
+          <button class="c-btn-post">Post</button>
+        </div>
+      </div>`;
+    commentLayer.appendChild(pop);
+    openPopover = pop;
+    requestAnimationFrame(() => placePopover(pop, x, y));
+
+    const ta   = pop.querySelector('textarea');
+    const inp  = pop.querySelector('input');
+    ta.focus();
+
+    const submit = () => {
+      const text = ta.value.trim();
+      if (!text) { cancel(); return; }
+      savedName = inp.value.trim();
+      if (savedName) localStorage.setItem('cc-name', savedName);
+
+      const comment = {
+        id: nextId++,
+        xPct: x / window.innerWidth  * 100,
+        yPct: y / window.innerHeight * 100,
+        text,
+        author: savedName || 'Anonymous',
+        time: Date.now(),
+      };
+      comments.push(comment);
+      saveComments();
+      updateBadge();
+
+      pendingPin.remove();
+      pop.remove();
+      openPopover = null; openPinEl = null;
+      renderPin(comment);
+    };
+
+    const cancel = () => {
+      pendingPin.remove();
+      pop.remove();
+      openPopover = null; openPinEl = null;
+    };
+
+    pop.querySelector('.c-btn-post').onclick   = submit;
+    pop.querySelector('.c-btn-cancel').onclick = cancel;
+    ta.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); submit(); }
+      if (e.key === 'Escape') { e.stopPropagation(); cancel(); }
+    });
+  }
+
+  // ── Render a saved pin ─────────────────────────────────
+  function renderPin(comment) {
+    const color = authorColor(comment.author);
+    const pin = document.createElement('div');
+    pin.className = 'c-pin c-pin--new';
+    pin.dataset.id = comment.id;
+    pin.textContent = comment.id;
+    pin.style.background = `linear-gradient(145deg, ${color}ee, ${color})`;
+    pin.style.boxShadow  = `0 3px 10px ${color}88, 0 0 0 2px rgba(255,255,255,0.18)`;
+    repositionPin(pin, comment);
+    commentLayer.appendChild(pin);
+
+    pin.addEventListener('click', e => {
+      e.stopPropagation();
+      if (openPinEl === pin) { closePopover(); return; }
+      closePopover();
+      openPinEl = pin;
+      pin.classList.add('active');
+
+      const pop = document.createElement('div');
+      pop.className = 'c-popover';
+      pop.style.borderLeftColor = color;
+      const esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>');
+      pop.innerHTML = `
+        <div class="c-comment">
+          <div class="c-meta">
+            <div class="c-avatar" style="background:${color}">${initials(comment.author)}</div>
+            <span class="c-author">${esc(comment.author)}</span>
+            <span class="c-time">${timeAgo(comment.time)}</span>
+          </div>
+          <div class="c-text">${esc(comment.text)}</div>
+          <div class="c-footer">
+            <button class="c-btn-delete">Delete</button>
+          </div>
+        </div>`;
+      commentLayer.appendChild(pop);
+      openPopover = pop;
+      requestAnimationFrame(() => {
+        placePopover(pop, parseFloat(pin.style.left), parseFloat(pin.style.top) + 28);
+      });
+
+      pop.querySelector('.c-btn-delete').onclick = () => {
+        comments = comments.filter(c => c.id !== comment.id);
+        saveComments(); updateBadge();
+        pin.remove(); pop.remove();
+        openPopover = null; openPinEl = null;
+      };
+    });
+  }
+
+  function repositionPin(pin, comment) {
+    pin.style.left = (comment.xPct / 100 * window.innerWidth)  + 'px';
+    pin.style.top  = (comment.yPct / 100 * window.innerHeight) + 'px';
+  }
+
+  // ── Layer click → place comment ────────────────────────
+  commentLayer.addEventListener('click', e => {
+    if (!commentMode) return;
+    if (e.target.closest('.c-pin') || e.target.closest('.c-popover')) return;
+    if (openPopover) { closePopover(); return; }
+    openNewCommentAt(e.clientX, e.clientY);
+  });
+
+  // ── Toolbar button ─────────────────────────────────────
+  commentToggleBtn.addEventListener('click', () => setCommentMode(!commentMode));
+
+  // ── Keyboard ───────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    const inInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+
+    // Escape: close popover → exit comment mode → clear calculator
+    if (e.key === 'Escape') {
+      if (openPopover) { closePopover(); return; }
+      if (commentMode) { setCommentMode(false); return; }
+      if (!inInput) pressAC();
+      return;
+    }
+
+    // C key toggles comment mode (not when typing)
+    if (!inInput && (e.key === 'c' || e.key === 'C')) {
+      setCommentMode(!commentMode);
+      return;
+    }
+
+    // Block calculator keys while in comment mode or typing
+    if (commentMode || inInput) return;
+
+    if (e.key >= '0' && e.key <= '9') pressNum(e.key);
+    else if (e.key === '.') pressDot();
+    else if (e.key === '+') pressOp('+');
+    else if (e.key === '-') pressOp('−');
+    else if (e.key === '*') pressOp('×');
+    else if (e.key === '/') { e.preventDefault(); pressOp('÷'); }
+    else if (e.key === 'Enter' || e.key === '=') pressEq();
+    else if (e.key === 'Backspace') {
+      if (current.length > 1) { current = current.slice(0, -1); updateDisplay(current); }
+      else { current = '0'; updateDisplay('0'); }
+    }
+    else if (e.key === '%') pressPct();
+  });
+
+  // ── Reposition pins on resize ──────────────────────────
+  window.addEventListener('resize', () => {
+    document.querySelectorAll('.c-pin[data-id]').forEach(pin => {
+      const comment = comments.find(c => c.id === +pin.dataset.id);
+      if (comment) repositionPin(pin, comment);
+    });
+    closePopover();
+  });
+
+  // ── Author colors ──────────────────────────────────────
+  const PALETTE = ['#f59e0b','#3b82f6','#10b981','#ec4899','#06b6d4','#f97316','#8b5cf6','#ef4444'];
+
+  function authorColor(author) {
+    if (!author || author === 'Anonymous') return '#f59e0b';
+    let h = 0;
+    for (const ch of author) h = (h * 31 + ch.charCodeAt(0)) & 0xffff;
+    return PALETTE[h % PALETTE.length];
+  }
+
+  // ── Export ─────────────────────────────────────────────
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    if (!comments.length) {
+      // Brief shake feedback instead of alert
+      const btn = document.getElementById('exportBtn');
+      btn.style.transition = 'transform 0.1s';
+      btn.style.transform = 'translateX(-4px)';
+      setTimeout(() => btn.style.transform = 'translateX(4px)', 100);
+      setTimeout(() => btn.style.transform = '', 200);
+      return;
+    }
+    const blob = new Blob([JSON.stringify(comments, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: 'comments.json' });
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ── Import ─────────────────────────────────────────────
+  document.getElementById('importInput').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try {
+        const imported = JSON.parse(evt.target.result);
+        if (!Array.isArray(imported)) throw new Error();
+        const existingIds = new Set(comments.map(c => c.id));
+        imported.forEach(c => {
+          if (!c.text || typeof c.xPct !== 'number') return;
+          if (existingIds.has(c.id)) c = { ...c, id: nextId++ };
+          else nextId = Math.max(nextId, c.id + 1);
+          existingIds.add(c.id);
+          comments.push(c);
+          renderPin(c);
+        });
+        saveComments();
+        updateBadge();
+      } catch { /* ignore malformed files */ }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  // ── Init ───────────────────────────────────────────────
+  comments.forEach(c => renderPin(c));
+  updateBadge();
+</script>
+</body>
+</html>
