@@ -788,6 +788,8 @@
   Comment mode &nbsp;·&nbsp; Click anywhere to place &nbsp;·&nbsp; <kbd>Esc</kbd> to exit
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
   // ═══════════════════════════════════════════
   // CALCULATOR
@@ -939,14 +941,24 @@
   const commentToggleBtn  = document.getElementById('commentToggleBtn');
   const commentCountEl    = document.getElementById('commentCount');
 
-  let commentMode  = false;
-  let openPopover  = null;   // currently-shown popover DOM node
-  let openPinEl    = null;   // currently-active pin DOM node
-  let savedName    = localStorage.getItem('cc-name') || '';
-  let comments     = JSON.parse(localStorage.getItem('cc-comments') || '[]');
-  let nextId       = comments.length ? Math.max(...comments.map(c => c.id)) + 1 : 1;
+  // Firebase init
+  firebase.initializeApp({
+    apiKey: "AIzaSyBwRNBa-0Tm2A_h52Qklc6yVBBBhkVPg54",
+    authDomain: "calculator-prototype-899ab.firebaseapp.com",
+    databaseURL: "https://calculator-prototype-899ab-default-rtdb.firebaseio.com",
+    projectId: "calculator-prototype-899ab",
+    storageBucket: "calculator-prototype-899ab.firebasestorage.app",
+    messagingSenderId: "987611360552",
+    appId: "1:987611360552:web:443c5dea6572fcad46f41d"
+  });
+  const commentsRef = firebase.database().ref('comments');
 
-  function saveComments() { localStorage.setItem('cc-comments', JSON.stringify(comments)); }
+  let commentMode = false;
+  let openPopover = null;
+  let openPinEl   = null;
+  let savedName   = localStorage.getItem('cc-name') || '';
+  let comments    = [];
+  let nextId      = 1;
 
   function timeAgo(ts) {
     const s = Math.floor((Date.now() - ts) / 1000);
@@ -1030,22 +1042,18 @@
       savedName = inp.value.trim();
       if (savedName) localStorage.setItem('cc-name', savedName);
 
-      const comment = {
-        id: nextId++,
+      // Push to Firebase — onValue listener renders it for everyone
+      commentsRef.push({
         xPct: x / window.innerWidth  * 100,
         yPct: y / window.innerHeight * 100,
         text,
         author: savedName || 'Anonymous',
         time: Date.now(),
-      };
-      comments.push(comment);
-      saveComments();
-      updateBadge();
+      });
 
       pendingPin.remove();
       pop.remove();
       openPopover = null; openPinEl = null;
-      renderPin(comment);
     };
 
     const cancel = () => {
@@ -1067,7 +1075,7 @@
     const color = authorColor(comment.author);
     const pin = document.createElement('div');
     pin.className = 'c-pin c-pin--new';
-    pin.dataset.id = comment.id;
+    pin.dataset.fbkey = comment.fbKey;
     pin.textContent = comment.id;
     pin.style.background = `linear-gradient(145deg, ${color}ee, ${color})`;
     pin.style.boxShadow  = `0 3px 10px ${color}88, 0 0 0 2px rgba(255,255,255,0.18)`;
@@ -1104,10 +1112,10 @@
       });
 
       pop.querySelector('.c-btn-delete').onclick = () => {
-        comments = comments.filter(c => c.id !== comment.id);
-        saveComments(); updateBadge();
-        pin.remove(); pop.remove();
+        commentsRef.child(comment.fbKey).remove();
+        pop.remove();
         openPopover = null; openPinEl = null;
+        // onValue will remove the pin automatically
       };
     });
   }
@@ -1165,8 +1173,8 @@
 
   // ── Reposition pins on resize ──────────────────────────
   window.addEventListener('resize', () => {
-    document.querySelectorAll('.c-pin[data-id]').forEach(pin => {
-      const comment = comments.find(c => c.id === +pin.dataset.id);
+    document.querySelectorAll('.c-pin[data-fbkey]').forEach(pin => {
+      const comment = comments.find(c => c.fbKey === pin.dataset.fbkey);
       if (comment) repositionPin(pin, comment);
     });
     closePopover();
@@ -1209,26 +1217,38 @@
       try {
         const imported = JSON.parse(evt.target.result);
         if (!Array.isArray(imported)) throw new Error();
-        const existingIds = new Set(comments.map(c => c.id));
+        // Push imported comments to Firebase — onValue renders them for everyone
         imported.forEach(c => {
           if (!c.text || typeof c.xPct !== 'number') return;
-          if (existingIds.has(c.id)) c = { ...c, id: nextId++ };
-          else nextId = Math.max(nextId, c.id + 1);
-          existingIds.add(c.id);
-          comments.push(c);
-          renderPin(c);
+          commentsRef.push({
+            xPct: c.xPct, yPct: c.yPct,
+            text: c.text,
+            author: c.author || 'Anonymous',
+            time: c.time || Date.now(),
+          });
         });
-        saveComments();
-        updateBadge();
       } catch { /* ignore malformed files */ }
       e.target.value = '';
     };
     reader.readAsText(file);
   });
 
-  // ── Init ───────────────────────────────────────────────
-  comments.forEach(c => renderPin(c));
-  updateBadge();
+  // ── Real-time sync from Firebase ───────────────────────
+  commentsRef.on('value', snapshot => {
+    document.querySelectorAll('.c-pin[data-fbkey]').forEach(p => p.remove());
+    if (openPinEl && openPinEl.dataset.fbkey) closePopover();
+
+    comments = [];
+    let displayId = 1;
+    const data = snapshot.val() || {};
+    Object.entries(data).forEach(([key, c]) => {
+      const comment = { ...c, fbKey: key, id: displayId++ };
+      comments.push(comment);
+      renderPin(comment);
+    });
+    nextId = displayId;
+    updateBadge();
+  });
 </script>
 </body>
 </html>
