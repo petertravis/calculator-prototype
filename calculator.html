@@ -768,6 +768,129 @@
   }
   .c-comment:hover .c-btn-delete { color: rgba(255,255,255,0.25); }
   .c-btn-delete:hover { color: rgba(248,113,113,0.9) !important; background: rgba(248,113,113,0.1); }
+
+  /* ── Comment review panel ─────────────────────────────── */
+  #commentPanel {
+    position: fixed;
+    right: 0; top: 0; bottom: 0;
+    width: 300px;
+    background: rgba(11,11,18,0.97);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-left: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 300;
+    box-shadow: -12px 0 40px rgba(0,0,0,0.5);
+  }
+  #commentPanel.open { transform: translateX(0); }
+
+  .cp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 16px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+  .cp-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .cp-title-count {
+    font-weight: 400;
+    color: rgba(255,255,255,0.3);
+    margin-left: 5px;
+  }
+  .cp-close {
+    background: none; border: none;
+    color: rgba(255,255,255,0.3);
+    cursor: pointer; padding: 4px;
+    border-radius: 6px; display: flex;
+    transition: color 0.15s, background 0.15s;
+  }
+  .cp-close:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.07); }
+
+  .cp-list {
+    flex: 1; overflow-y: auto;
+    padding: 10px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .cp-list::-webkit-scrollbar { width: 4px; }
+  .cp-list::-webkit-scrollbar-track { background: transparent; }
+  .cp-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+  .cp-empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.18); font-size: 13px; gap: 10px;
+    padding: 40px 0;
+  }
+
+  .cp-card {
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-left: 3px solid var(--cc, #f59e0b);
+    border-radius: 10px;
+    padding: 11px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .cp-card:hover { background: rgba(255,255,255,0.065); }
+
+  .cp-card-meta {
+    display: flex; align-items: center;
+    gap: 7px; margin-bottom: 7px;
+  }
+  .cp-avatar {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800; color: #fff; flex-shrink: 0;
+  }
+  .cp-author {
+    font-size: 12px; font-weight: 600;
+    color: rgba(255,255,255,0.82); flex: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cp-num {
+    font-size: 11px; color: rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.07);
+    padding: 1px 6px; border-radius: 20px; flex-shrink: 0;
+  }
+  .cp-time {
+    font-size: 11px; color: rgba(255,255,255,0.22); flex-shrink: 0;
+  }
+  .cp-text {
+    font-size: 12.5px; line-height: 1.5;
+    color: rgba(255,255,255,0.65);
+    word-break: break-word; margin-bottom: 0;
+    display: -webkit-box; -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .cp-thumb {
+    width: 100%; border-radius: 6px; display: block;
+    opacity: 0.65; margin-bottom: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .cp-footer {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 8px;
+  }
+  .cp-reply-count {
+    font-size: 11px; color: rgba(255,255,255,0.28);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .cp-go-hint {
+    margin-left: auto;
+    font-size: 11px; color: rgba(255,255,255,0.2);
+    transition: color 0.15s;
+  }
+  .cp-card:hover .cp-go-hint { color: rgba(255,255,255,0.55); }
 </style>
 </head>
 <body>
@@ -787,6 +910,13 @@
     <span class="c-count" id="commentCount">0</span>
   </button>
 
+  <button class="comment-toggle-btn" id="reviewPanelBtn" title="Review all comments">
+    <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+    <span>Review</span>
+  </button>
+
   <button class="comment-toggle-btn" id="exportBtn" title="Export your comments as a file">
     <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
       <path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -801,6 +931,16 @@
     <span>Import</span>
     <input type="file" id="importInput" accept=".json" style="display:none">
   </label>
+</div>
+
+<div id="commentPanel">
+  <div class="cp-header">
+    <span class="cp-title">Comments<span class="cp-title-count" id="cpTitleCount"></span></span>
+    <button class="cp-close" id="cpClose" title="Close">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="cp-list" id="cpList"></div>
 </div>
 
 <div class="calc-shell view-compact" id="calcShell">
@@ -1073,6 +1213,62 @@
   const commentBar        = document.getElementById('commentBar');
   const commentToggleBtn  = document.getElementById('commentToggleBtn');
   const commentCountEl    = document.getElementById('commentCount');
+  const commentPanel      = document.getElementById('commentPanel');
+  const cpList            = document.getElementById('cpList');
+  const cpTitleCount      = document.getElementById('cpTitleCount');
+
+  let panelOpen = false;
+  function togglePanel(open) {
+    panelOpen = open;
+    commentPanel.classList.toggle('open', open);
+    document.getElementById('reviewPanelBtn').classList.toggle('active', open);
+  }
+
+  document.getElementById('reviewPanelBtn').addEventListener('click', () => togglePanel(!panelOpen));
+  document.getElementById('cpClose').addEventListener('click', () => togglePanel(false));
+
+  function renderPanel() {
+    cpTitleCount.textContent = comments.length ? ` (${comments.length})` : '';
+    cpList.innerHTML = '';
+    if (!comments.length) {
+      cpList.innerHTML = `<div class="cp-empty"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>No comments yet</div>`;
+      return;
+    }
+    comments.forEach(comment => {
+      const color = authorColor(comment.author);
+      const card = document.createElement('div');
+      card.className = 'cp-card';
+      card.style.setProperty('--cc', color);
+      const esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      card.innerHTML = `
+        ${comment.thumbnail ? `<img class="cp-thumb" src="${comment.thumbnail}" alt="">` : ''}
+        <div class="cp-card-meta">
+          <div class="cp-avatar" style="background:${color}">${initials(comment.author)}</div>
+          <span class="cp-author">${esc(comment.author)}</span>
+          <span class="cp-num">#${comment.id}</span>
+          <span class="cp-time">${timeAgo(comment.time)}</span>
+        </div>
+        <div class="cp-text">${esc(comment.text)}</div>
+        <div class="cp-footer">
+          <span class="cp-reply-count" id="cp-replies-${comment.fbKey}"></span>
+          <span class="cp-go-hint">View on canvas →</span>
+        </div>`;
+      card.addEventListener('click', () => {
+        togglePanel(false);
+        setCommentMode(true);
+        const pin = document.querySelector(`.c-pin[data-fbkey="${comment.fbKey}"]`);
+        if (pin) pin.click();
+      });
+      cpList.appendChild(card);
+
+      // Load reply count async
+      commentsRef.child(comment.fbKey).child('replies').once('value', snap => {
+        const n = Object.keys(snap.val() || {}).length;
+        const el = document.getElementById(`cp-replies-${comment.fbKey}`);
+        if (el && n > 0) el.innerHTML = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M13.5 9a5.5 5.5 0 0 1-5.5 5H3.5L2 15.5V8a5.5 5.5 0 0 1 5.5-5.5A5.5 5.5 0 0 1 13.5 8V9Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg> ${n} ${n === 1 ? 'reply' : 'replies'}`;
+      });
+    });
+  }
 
   // Firebase init
   firebase.initializeApp({
@@ -1466,6 +1662,7 @@
     });
     nextId = displayId;
     updateBadge();
+    renderPanel();
   });
 </script>
 </body>
