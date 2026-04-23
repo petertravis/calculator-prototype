@@ -670,6 +670,38 @@
     object-position: center top;
     border-bottom: 1px solid rgba(255,255,255,0.07);
     border-radius: 11px 11px 0 0;
+    cursor: zoom-in;
+    transition: opacity 0.15s;
+  }
+  .c-thumbnail:hover { opacity: 0.85; }
+
+  /* ── Lightbox ─────────────────────────────────────────── */
+  #thumbLightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(12px);
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+    animation: fade-in 0.15s ease;
+  }
+  #thumbLightbox.open { display: flex; }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  #thumbLightbox img {
+    max-width: 90vw;
+    max-height: 85vh;
+    border-radius: 16px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.8);
+    border: 1px solid rgba(255,255,255,0.1);
+    pointer-events: none;
   }
 
   /* ── Comment view (existing) ──────────────────────────── */
@@ -885,6 +917,7 @@
 
 <!-- Comment layer and mode bar -->
 <div id="commentLayer"></div>
+<div id="thumbLightbox"><img id="thumbLightboxImg" src="" alt=""></div>
 <div id="commentBar">
   <span class="c-bar-dot"></span>
   Comment mode &nbsp;·&nbsp; Click anywhere to place &nbsp;·&nbsp; <kbd>Esc</kbd> to exit
@@ -1303,6 +1336,21 @@
     if (openPopover) { closePopover(); return; }
     openNewCommentAt(e.clientX, e.clientY);
   });
+
+  // ── Lightbox ───────────────────────────────────────────
+  const thumbLightbox    = document.getElementById('thumbLightbox');
+  const thumbLightboxImg = document.getElementById('thumbLightboxImg');
+
+  document.addEventListener('click', e => {
+    if (e.target.classList.contains('c-thumbnail')) {
+      thumbLightboxImg.src = e.target.src;
+      thumbLightbox.classList.add('open');
+    }
+  });
+  thumbLightbox.addEventListener('click', () => thumbLightbox.classList.remove('open'));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') thumbLightbox.classList.remove('open');
+  }, true);
 
   // ── Toolbar button ─────────────────────────────────────
   commentToggleBtn.addEventListener('click', () => setCommentMode(!commentMode));
