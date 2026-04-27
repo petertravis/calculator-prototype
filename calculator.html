@@ -918,20 +918,6 @@
     <span>Review</span>
   </button>
 
-  <button class="comment-toggle-btn" id="exportBtn" title="Export your comments as a file">
-    <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <span>Export</span>
-  </button>
-
-  <label class="comment-toggle-btn" id="importBtn" title="Import someone else's comments">
-    <svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <path d="M8 10V2M5 5l3-3 3 3M3 13h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <span>Import</span>
-    <input type="file" id="importInput" accept=".json" style="display:none">
-  </label>
 </div>
 
 <div id="commentPanel">
@@ -1604,49 +1590,6 @@
     for (const ch of author) h = (h * 31 + ch.charCodeAt(0)) & 0xffff;
     return PALETTE[h % PALETTE.length];
   }
-
-  // ── Export ─────────────────────────────────────────────
-  document.getElementById('exportBtn').addEventListener('click', () => {
-    if (!comments.length) {
-      // Brief shake feedback instead of alert
-      const btn = document.getElementById('exportBtn');
-      btn.style.transition = 'transform 0.1s';
-      btn.style.transform = 'translateX(-4px)';
-      setTimeout(() => btn.style.transform = 'translateX(4px)', 100);
-      setTimeout(() => btn.style.transform = '', 200);
-      return;
-    }
-    const blob = new Blob([JSON.stringify(comments, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = Object.assign(document.createElement('a'), { href: url, download: 'comments.json' });
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  // ── Import ─────────────────────────────────────────────
-  document.getElementById('importInput').addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = evt => {
-      try {
-        const imported = JSON.parse(evt.target.result);
-        if (!Array.isArray(imported)) throw new Error();
-        // Push imported comments to Firebase — onValue renders them for everyone
-        imported.forEach(c => {
-          if (!c.text || typeof c.xPct !== 'number') return;
-          commentsRef.push({
-            xPct: c.xPct, yPct: c.yPct,
-            text: c.text,
-            author: c.author || 'Anonymous',
-            time: c.time || Date.now(),
-          });
-        });
-      } catch { /* ignore malformed files */ }
-      e.target.value = '';
-    };
-    reader.readAsText(file);
-  });
 
   // ── Real-time sync from Firebase ───────────────────────
   commentsRef.on('value', snapshot => {
